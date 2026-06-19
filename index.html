@@ -97,6 +97,23 @@ let timeLeft = 60, timerInterval = null, audioCtx = null;
 let unlockedStickers = JSON.parse(localStorage.getItem('emoji_stickers')) || [];
 let highScore = parseInt(localStorage.getItem('emoji_high_score')) || 0;
 
+// Логика перемешанной колоды карт (Fisher-Yates)
+let gameOrder = [];
+function shuffleOrder() {
+    gameOrder = Array.from({length: data.length}, (_, i) => i);
+    for (let i = gameOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [gameOrder[i], gameOrder[j]] = [gameOrder[j], gameOrder[i]];
+    }
+    cur = 0;
+}
+shuffleOrder();
+
+// Функция получения текущего объекта из перемешанной колоды
+function getActiveItem() {
+    return data[gameOrder[cur]];
+}
+
 function playTone(type) {
     try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -212,7 +229,10 @@ function loadLevel() {
     document.getElementById('word-input').value = "";
     const container = document.getElementById('image-container');
     container.className = "silhouette"; container.style.transform = "scale(1)";
-    container.innerText = data[cur].icon;
+    
+    const item = getActiveItem();
+    container.innerText = item.icon;
+    
     const hintBtn = document.getElementById('hint-btn');
     if (isTextMode) {
         document.getElementById('mic-btn').style.display = 'none';
@@ -230,17 +250,18 @@ function loadLevel() {
 function winRound() {
     if (gameMode === 'ended' || gameMode === 'time-waiting') return;
     spawnConfetti();
-    const currentWord = data[cur].a;
+    const item = getActiveItem();
+    const currentWord = item.a;
     
     if (!unlockedStickers.includes(currentWord)) {
         unlockedStickers.push(currentWord);
         localStorage.setItem('emoji_stickers', JSON.stringify(unlockedStickers));
         playTone('new_sticker');
         buildAlbum();
-        document.getElementById('feedback').innerText = "NEW STICKER UNLOCKED! 🎉 It's " + data[cur].h;
+        document.getElementById('feedback').innerText = "NEW STICKER UNLOCKED! 🎉 It's " + item.h;
     } else {
         playTone('win');
-        document.getElementById('feedback').innerText = "Correct! It's " + data[cur].h;
+        document.getElementById('feedback').innerText = "Correct! It's " + item.h;
     }
 
     const img = document.getElementById('image-container');
@@ -259,12 +280,18 @@ function winRound() {
 
 function nextLevel() {
     if (gameMode === 'ended' || gameMode === 'time-waiting') return;
-    cur = Math.floor(Math.random() * data.length);
+    
+    cur++;
+    if (cur >= gameOrder.length) {
+        shuffleOrder(); // Круг замкнулся (все 142 слова позади), тасуем колоду на второй круг
+    }
+    
     loadLevel();
 }
 
 function checkTextWord() {
-    if (document.getElementById('word-input').value.trim().toLowerCase() === data[cur].a) winRound();
+    const item = getActiveItem();
+    if (document.getElementById('word-input').value.trim().toLowerCase() === item.a) winRound();
     else { 
         playTone('fail'); 
         if(gameMode === 'time') timeLeft = Math.max(0, timeLeft - 5);
@@ -284,8 +311,10 @@ function startRecognition() {
     
     rec.onresult = (e) => {
         let resultText = e.results[0][0].transcript.toLowerCase().trim();
-        const targetWord = data[cur].a; 
+        const item = getActiveItem();
+        const targetWord = item.a; 
         
+        // Массив фонетических замен под плохие микрофоны
         const soundAlikes = {
             'pig': ['big', 'peg', 'pick', 'pigg', 'pige', 'pink', 'peek', 'peeg', 'fig', 'pagan'],
             'dog': ['dok', 'tog', 'dug', 'doh', 'duck', 'done', 'door', 'log', 'gog'],
@@ -377,7 +406,8 @@ function setGameMode(mode) {
         document.getElementById('game-heading').innerText = "What is this?";
         document.getElementById('next').innerText = "Next ➔";
         document.getElementById('next').onclick = nextLevel;
-        nextLevel();
+        shuffleOrder(); // Для свежего классического режима даем новую перемешанную колоду
+        loadLevel();
     }
 }
 
@@ -400,7 +430,8 @@ function startTimeAttackCountdown() {
             endTimeAttack();
         }
     }, 1000);
-    nextLevel();
+    shuffleOrder(); // Уникальная колода для чистого спидрана
+    loadLevel();
 }
 
 function endTimeAttack() {
@@ -462,11 +493,12 @@ document.getElementById('skip-btn').onclick = () => {
 
 document.getElementById('hint-btn').onclick = () => {
     if (gameMode === 'ended' || gameMode === 'time-waiting') return;
+    const item = getActiveItem();
     if (isTextMode) {
-        let w = data[cur].a;
+        let w = item.a;
         document.getElementById('feedback').innerText = `Hint: ${w[0]} ${"_ ".repeat(w.length - 2)} ${w[w.length - 1]}`;
     } else {
-        const u = new SpeechSynthesisUtterance("It is " + data[cur].h);
+        const u = new SpeechSynthesisUtterance("It is " + item.h);
         u.voice = speechSynthesis.getVoices().find(v => v.lang.startsWith('en')) || null;
         speechSynthesis.speak(u);
     }
