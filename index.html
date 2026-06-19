@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji English Quiz</title>
+    <style>
+        body { margin: 0; padding: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #74ebd5, #9face6); display: flex; align-items: center; justify-content: center; font-family: sans-serif; overflow: hidden; }
+        .game-card { background: white; padding: 20px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; width: 85%; max-width: 320px; box-sizing: border-box; transition: transform 0.2s; position: relative; }
+        .score-board { font-size: 13px; font-weight: bold; color: #2c3e50; margin-bottom: 8px; background: #ecf0f1; padding: 4px 10px; border-radius: 10px; display: inline-block; }
+        .mode-select { margin-bottom: 10px; display: flex; justify-content: center; gap: 15px; font-size: 14px; font-weight: bold; color: #555; }
+        #image-container { height: 100px; display: flex; align-items: center; justify-content: center; margin: 10px 0; font-size: 70px; transition: filter 0.4s, transform 0.2s; }
+        .silhouette { filter: brightness(0); }
+        .mic { width: 60px; height: 60px; border-radius: 50%; border: none; background: #3498db; color: white; font-size: 22px; cursor: pointer; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
+        #text-input-container { display: flex; justify-content: center; gap: 5px; margin: 10px 0; }
+        #word-input { padding: 10px; border-radius: 12px; border: 2px solid #ddd; width: 60%; font-size: 16px; outline: none; text-align: center; }
+        #check-btn { padding: 10px 15px; border-radius: 12px; border: none; background: #3498db; color: white; font-weight: bold; cursor: pointer; }
+        .buttons-row { margin-top: 10px; }
+        .hint-btn, .skip-btn { display: inline-block; margin: 0 4px; padding: 6px 12px; border-radius: 15px; border: 1px solid #ddd; background: #f9f9f9; font-size: 12px; font-weight: bold; color: #555; cursor: pointer; }
+        .skip-btn { background: #ff7675; color: white; border: none; }
+        #next { margin-top: 12px; padding: 10px 25px; border-radius: 15px; border: none; background: #2ecc71; color: white; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
+        .feedback-link { display: block; margin-top: 15px; font-size: 11px; color: #7f8c8d; text-decoration: none; font-weight: bold; }
+        .feedback-link:hover { text-decoration: underline; }
+        @keyframes rainbow { 0% { border-color: #ff7675; } 33% { border-color: #fdcb6e; } 66% { border-color: #2ecc71; } 100% { border-color: #3498db; } }
+        .super-streak { border: 4px solid #2ecc71; animation: rainbow 2s linear infinite; }
+        #confetti-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+        .pop-emoji { position: absolute; font-size: 24px; animation: flyOut 0.6s ease-out forwards; }
+        @keyframes flyOut { 0% { transform: translate(0, 0) scale(0.3); opacity: 1; } 100% { transform: translate(var(--x), var(--y)) scale(1.2); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="game-card" id="card">
+    <div class="score-board">
+        🏆 <span id="score">0</span> (<span id="rank">Noob 🍼</span>) 
+        <span id="streak-badge" style="display:none; margin-left:8px;">🔥 <span id="streak">0</span></span>
+    </div>
+    
+    <div class="mode-select">
+        <label><input type="radio" name="mode" value="voice" checked> 🎤 Voice</label>
+        <label><input type="radio" name="mode" value="text"> ⌨️ Text</label>
+    </div>
+    
+    <h2>What is this?</h2>
+    
+    <div style="position: relative;">
+        <div id="image-container"></div>
+        <div id="confetti-layer"></div>
+    </div>
+    
+    <button class="mic" id="mic-btn">🎤</button>
+    
+    <div id="text-input-container" style="display:none;">
+        <input type="text" id="word-input" placeholder="Type here..." autocomplete="off">
+        <button id="check-btn">OK</button>
+    </div>
+    
+    <div class="buttons-row">
+        <button class="hint-btn" id="hint-btn">🔊 Hear Hint</button>
+        <button class="skip-btn" id="skip-btn">Skip ➔</button>
+    </div>
+    
+    <p id="feedback">Tap mic to speak</p>
+    <button id="next" style="display:none;">Next ➔</button>
+
+    <a href="#" class="feedback-link" id="feedback-link">📩 Share feedback / Report bug</a>
+</div>
+
+<script>
+const data = [
+    { a: 'juice', h: "Juice", icon: "🧃" }, { a: 'cereal', h: "Cereal", icon: "🥣" }, { a: 'phone', h: "Phone", icon: "📱" }, { a: 'bread', h: "Bread", icon: "🍞" }, { a: 'milk', h: "Milk", icon: "🥛" }, { a: 'banana', h: "Banana", icon: "🍌" }, { a: 'soap', h: "Soap", icon: "🧼" }, { a: 'apple', h: "Apple", icon: "🍎" }, { a: 'orange', h: "Orange", icon: "🍊" }, { a: 'lemon', h: "Lemon", icon: "🍋" }, { a: 'watermelon', h: "Watermelon", icon: "🍉" }, { a: 'strawberry', h: "Strawberry", icon: "🍓" }, { a: 'cherry', h: "Cherry", icon: "🍒" }, { a: 'carrot', h: "Carrot", icon: "🥕" }, { a: 'potato', h: "Potato", icon: "🥔" }, { a: 'tomato', h: "Tomato", icon: "🍅" }, { a: 'corn', h: "Corn", icon: "🌽" }, { a: 'egg', h: "Egg", icon: "🥚" }, { a: 'cheese', h: "Cheese", icon: "🧀" }, { a: 'pizza', h: "Pizza", icon: "🍕" }, { a: 'cake', h: "Cake", icon: "🍰" }, { a: 'ice cream', h: "Ice cream", icon: "🍦" }, { a: 'ball', h: "Ball", icon: "⚽" }, { a: 'book', h: "Book", icon: "📖" }, { a: 'pencil', h: "Pencil", icon: "✏️" }, { a: 'key', h: "Key", icon: "🔑" }, { a: 'clock', h: "Clock", icon: "⏰" }, { a: 'umbrella', h: "Umbrella", icon: "☂️" }, { a: 'balloon', h: "Balloon", icon: "🎈" }, { a: 'car', h: "Car", icon: "🚗" }, { a: 'bus', h: "Bus", icon: "🚌" }, { a: 'plane', h: "Plane", icon: "✈️" }, { a: 'bicycle', h: "Bicycle", icon: "🚲" }, { a: 'cat', h: "Cat", icon: "🐱" }, { a: 'dog', h: "Dog", icon: "🐶" }, { a: 'mouse', h: "Mouse", icon: "🐭" }, { a: 'rabbit', h: "Rabbit", icon: "🐰" }, { a: 'fox', h: "Fox", icon: "🦊" }, { a: 'lion', h: "Lion", icon: "🦁" }, { a: 'frog', h: "Frog", icon: "🐸" }, { a: 'duck', h: "Duck", icon: "🦆" }, { a: 'fish', h: "Fish", icon: "🐟" }, { a: 'sun', h: "Sun", icon: "☀️" }, { a: 'star', h: "Star", icon: "⭐" }, { a: 'hat', h: "Hat", icon: "🎩" }, { a: 'shirt', h: "Shirt", icon: "👕" }, { a: 'shoe', h: "Shoe", icon: "👟" }, { a: 'monkey', h: "Monkey", icon: "🐵" }, { a: 'chicken', h: "Chicken", icon: "🐔" }, { a: 'pig', h: "Pig", icon: "🐷" }, { a: 'cow', h: "Cow", icon: "🐮" }, { a: 'sheep', h: "Sheep", icon: "🐑" }, { a: 'elephant', h: "Elephant", icon: "🐘" }, { a: 'bear', h: "Bear", icon: "🐻" }, { a: 'penguin', h: "Penguin", icon: "🐧" }, { a: 'owl', h: "Owl", icon: "🦉" }, { a: 'turtle', h: "Turtle", icon: "🐢" }, { a: 'snake', h: "Snake", icon: "🐍" }, { a: 'bee', h: "Bee", icon: "🐝" }, { a: 'butterfly', h: "Butterfly", icon: "🦋" }, { a: 'spider', h: "Spider", icon: "🕷️" }, { a: 'crab', h: "Crab", icon: "🦀" }, { a: 'grape', h: "Grapes", icon: "🍇" }, { a: 'melon', h: "Melon", icon: "🍈" }, { a: 'pineapple', h: "Pineapple", icon: "🍍" }, { a: 'pear', h: "Pear", icon: "🍐" }, { a: 'peach', h: "Peach", icon: "🍑" }, { a: 'kiwi', h: "Kiwi", icon: "🥝" }, { a: 'broccoli', h: "Broccoli", icon: "🥦" }, { a: 'onion', h: "Onion", icon: "🧅" }, { a: 'mushroom', h: "Mushroom", icon: "🍄" }, { a: 'cookie', h: "Cookie", icon: "🍪" }, { a: 'donut', h: "Donut", icon: "🍩" }, { a: 'candy', h: "Candy", icon: "🍬" }, { a: 'chocolate', h: "Chocolate", icon: "🍫" }, { a: 'burger', h: "Burger", icon: "🍔" }, { a: 'fries', h: "French fries", icon: "🍟" }, { a: 'popcorn', h: "Popcorn", icon: "🍿" }, { a: 'hot dog', h: "Hot dog", icon: "🌭" }, { a: 'croissant', h: "Croissant", icon: "🥐" }, { a: 'lamp', h: "Lamp", icon: "💡" }, { a: 'candle', h: "Candle", icon: "🕯️" }, { a: 'mirror', h: "Mirror", icon: "🪞" }, { a: 'chair', h: "Chair", icon: "🪑" }, { a: 'bed', h: "Bed", icon: "🛏️" }, { a: 'door', h: "Door", icon: "🚪" }, { a: 'gift', h: "Gift", icon: "🎁" }, { a: 'bell', h: "Bell", icon: "🔔" }, { a: 'camera', h: "Camera", icon: "📷" }, { a: 'scissors', h: "Scissors", icon: "✂️" }, { a: 'hammer', h: "Hammer", icon: "🔨" }, { a: 'bucket', h: "Bucket", icon: "🪣" }, { a: 'cup', h: "Cup", icon: "🥤" }, { a: 'fork', h: "Fork", icon: "🍴" }, { a: 'spoon', h: "Spoon", icon: "🥄" }, { a: 'glasses', h: "Glasses", icon: "👓" }, { a: 'ring', h: "Ring", icon: "💍" }, { a: 'crown', h: "Crown", icon: "👑" }, { a: 'bag', h: "Bag", icon: "🎒" }, { a: 'wallet', h: "Wallet", icon: "👛" }, { a: 'guitar', h: "Guitar", icon: "🎸" }, { a: 'drum', h: "Drum", icon: "🥁" }, { a: 'dress', h: "Dress", icon: "👗" }, { a: 'coat', h: "Coat", icon: "🧥" }, { a: 'socks', h: "Socks", icon: "🧦" }, { a: 'gloves', h: "Gloves", icon: "🧤" }, { a: 'truck', h: "Truck", icon: "🚚" }, { a: 'train', h: "Train", icon: "🚂" }, { a: 'rocket', h: "Rocket", icon: "🚀" }, { a: 'boat', h: "Boat", icon: "⛵" }, { a: 'anchor', h: "Anchor", icon: "⚓" }, { a: 'house', h: "House", icon: "🏠" }, { a: 'tent', h: "Tent", icon: "⛺" }, { a: 'tree', h: "Tree", icon: "🌳" }, { a: 'flower', h: "Flower", icon: "🌸" }, { a: 'cloud', h: "Cloud", icon: "☁️" }, { a: 'rainbow', h: "Rainbow", icon: "🌈" }, { a: 'fire', h: "Fire", icon: "🔥" }, { a: 'snowflake', h: "Snowflake", icon: "❄️" }, { a: 'kite', h: "Kite", icon: "🪁" }, { a: 'trophy', h: "Trophy", icon: "🏆" }, { a: 'skates', h: "Skates", icon: "🛼" }, { a: 'sled', h: "Sled", icon: "🛷" }, { a: 'snail', h: "Snail", icon: "🐌" }, { a: 'ant', h: "Ant", icon: "🐜" }, { a: 'octopus', h: "Octopus", icon: "🐙" }, { a: 'shrimp', h: "Shrimp", icon: "🍤" }, { a: 'dolphin', h: "Dolphin", icon: "🐬" }, { a: 'whale', h: "Whale", icon: "🐳" }, { a: 'horse', h: "Horse", icon: "🐴" }, { a: 'koala', h: "Koala", icon: "🐨" }, { a: 'chili', h: "Chili", icon: "🌶️" }, { a: 'bagel', h: "Bagel", icon: "🥯" }, { a: 'pancake', h: "Pancake", icon: "🥞" }, { a: 'waffle', h: "Waffle", icon: "🧇" }, { a: 'taco', h: "Taco", icon: "🌮" }, { a: 'sushi', h: "Sushi", icon: "🍣" }, { a: 'ice', h: "Ice", icon: "🧊" }, { a: 'radio', h: "Radio", icon: "📻" }, { a: 'tv', h: "TV", icon: "📺" }, { a: 'mouse', h: "Computer mouse", icon: "🖱️" }, { a: 'magnet', h: "Magnet", icon: "🧲" }, { a: 'sponge', h: "Sponge", icon: "🧽" }, { a: 'ladder', h: "Ladder", icon: "🪜" }, { a: 'jeans', h: "Jeans", icon: "👖" }, { a: 'shorts', h: "Shorts", icon: "🩳" }
+];
+
+let cur = 0, score = 0, streak = 0, isTextMode = false;
+let audioCtx = null;
+
+function playTone(type) {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        if (type === 'win') {
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+        } else if (type === 'fail') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(70, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+    } catch(e) {}
+}
+
+function spawnConfetti() {
+    const layer = document.getElementById('confetti-layer');
+    const emojis = ['🎉', '✨', '🌟', '🍭', '🔥', '⚡'];
+    for (let i = 0; i < 12; i++) {
+        const el = document.createElement('div');
+        el.className = 'pop-emoji'; el.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+        el.style.left = '50%'; el.style.top = '50%';
+        const angle = Math.random() * Math.PI * 2; const dist = 60 + Math.random() * 80;
+        el.style.setProperty('--x', `${Math.cos(angle) * dist}px`); el.style.setProperty('--y', `${Math.sin(angle) * dist}px`);
+        layer.appendChild(el); setTimeout(() => el.remove(), 600);
+    }
+}
+
+function updateScore(pts) {
+    score = Math.max(0, score + pts);
+    document.getElementById('score').innerText = score;
+    if (pts > 0) {
+        streak++;
+        if(streak >= 3) {
+            document.getElementById('streak-badge').style.display = 'inline-block';
+            document.getElementById('streak').innerText = streak;
+            if (streak >= 5) document.getElementById('card').className = "game-card super-streak";
+        }
+    } else if (pts < 0) {
+        streak = 0; document.getElementById('streak-badge').style.display = 'none';
+        document.getElementById('card').className = "game-card";
+    }
+    let rank = "Noob 🍼";
+    if (score >= 200) rank = "Mega Boss 👑";
+    else if (score >= 100) rank = "Cyber Hero ⚡";
+    else if (score >= 50) rank = "Pro Gamer 🎮";
+    else if (score >= 15) rank = "Cool Kid 😎";
+    document.getElementById('rank').innerText = rank;
+}
+
+function loadLevel() {
+    document.getElementById('next').style.display = 'none';
+    document.getElementById('skip-btn').style.display = 'inline-block';
+    document.getElementById('word-input').value = "";
+    const container = document.getElementById('image-container');
+    container.className = "silhouette"; container.style.transform = "scale(1)";
+    container.innerText = data[cur].icon;
+    const hintBtn = document.getElementById('hint-btn');
+    if (isTextMode) {
+        document.getElementById('mic-btn').style.display = 'none';
+        document.getElementById('text-input-container').style.display = 'flex';
+        document.getElementById('feedback').innerText = "Type the word!";
+        hintBtn.innerText = "✏️ Show Letters";
+    } else {
+        document.getElementById('mic-btn').style.display = 'inline-block';
+        document.getElementById('text-input-container').style.display = 'none';
+        document.getElementById('feedback').innerText = "Tap mic to speak";
+        hintBtn.innerText = "🔊 Hear Hint";
+    }
+}
+
+function winRound() {
+    playTone('win'); spawnConfetti();
+    document.getElementById('feedback').innerText = "Correct! It's " + data[cur].h;
+    const img = document.getElementById('image-container');
+    img.className = ""; img.style.transform = "scale(1.2)";
+    document.getElementById('next').style.display = 'inline-block';
+    document.getElementById('skip-btn').style.display = 'none';
+    updateScore(10);
+}
+
+function checkTextWord() {
+    if (document.getElementById('word-input').value.trim().toLowerCase() === data[cur].a) winRound();
+    else { playTone('fail'); document.getElementById('feedback').innerText = "Wrong spelling. Try again!"; }
+}
+
+function startRecognition() {
+    const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    rec.lang = 'en-US';
+    rec.onstart = () => { document.getElementById('feedback').innerText = "Listening..."; };
+    rec.onresult = (e) => {
+        if (e.results[0][0].transcript.toLowerCase().includes(data[cur].a)) winRound();
+        else { playTone('fail'); document.getElementById('feedback').innerText = "Try again!"; }
+    };
+    rec.start();
+}
+
+document.querySelectorAll('input[name="mode"]').forEach(r => r.onchange = (e) => { isTextMode = e.target.value === 'text'; loadLevel(); });
+document.getElementById('mic-btn').onclick = startRecognition;
+document.getElementById('check-btn').onclick = checkTextWord;
+document.getElementById('word-input').onkeypress = (e) => { if(e.key === 'Enter') checkTextWord(); };
+document.getElementById('next').onclick = () => { cur = (cur + 1) % data.length; loadLevel(); };
+document.getElementById('skip-btn').onclick = () => { playTone('fail'); updateScore(-5); cur = (cur + 1) % data.length; loadLevel(); };
+
+document.getElementById('hint-btn').onclick = () => {
+    if (isTextMode) {
+        let w = data[cur].a;
+        document.getElementById('feedback').innerText = `Hint: ${w[0]} ${"_ ".repeat(w.length - 2)} ${w[w.length - 1]}`;
+    } else {
+        const u = new SpeechSynthesisUtterance("It is " + data[cur].h);
+        u.voice = speechSynthesis.getVoices().find(v => v.lang.startsWith('en')) || null;
+        speechSynthesis.speak(u);
+    }
+};
+
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+loadLevel();
+</script>
+</body>
+</html>
