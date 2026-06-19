@@ -291,8 +291,12 @@ function nextLevel() {
 
 function checkTextWord() {
     const item = getActiveItem();
-    if (document.getElementById('word-input').value.trim().toLowerCase() === item.a) winRound();
-    else { 
+    const userValue = document.getElementById('word-input').value.trim().toLowerCase();
+    
+    // В тексте принимаем СТРОГО главное слово. Синонимы здесь больше не работают.
+    if (userValue === item.a) {
+        winRound();
+    } else { 
         playTone('fail'); 
         if(gameMode === 'time') timeLeft = Math.max(0, timeLeft - 5);
         document.getElementById('feedback').innerText = "Wrong spelling. Try again!"; 
@@ -494,11 +498,14 @@ document.getElementById('skip-btn').onclick = () => {
 document.getElementById('hint-btn').onclick = () => {
     if (gameMode === 'ended' || gameMode === 'time-waiting') return;
     const item = getActiveItem();
+    
     if (isTextMode) {
+        // СТРОГИЙ ПОДХОД: подсказка только для главного международного слова (item.a)
         let w = item.a;
         document.getElementById('feedback').innerText = `Hint: ${w[0]} ${"_ ".repeat(w.length - 2)} ${w[w.length - 1]}`;
     } else {
-        const u = new SpeechSynthesisUtterance("It is " + item.h);
+        // Робот озвучивает только международный стандарт
+        const u = new SpeechSynthesisUtterance("It is " + item.a);
         u.voice = speechSynthesis.getVoices().find(v => v.lang.startsWith('en')) || null;
         speechSynthesis.speak(u);
     }
