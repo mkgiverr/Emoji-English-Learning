@@ -124,39 +124,284 @@ function playTone(type) {
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
             osc.start(); osc.stop(audioCtx.currentTime + 0.2);
         } else if (type === 'highscore') {
-            // Создаем торжественный фанфар "ТА-ДА!" из двух мощных аккордов
             const now = audioCtx.currentTime;
-            
-            // Нота "ТА" (короткая, бодрая)
             osc.type = 'triangle';
-            osc.frequency.setValueAtTime(523.25, now); // До (C5)
+            osc.frequency.setValueAtTime(523.25, now);
             gain.gain.setValueAtTime(0.15, now);
             gain.gain.setValueAtTime(0.15, now + 0.1);
             gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
             
-            // Нота "ДА-А-АМ!" (длинная, победная, создаем второй осциллятор для сочности)
             const osc2 = audioCtx.createOscillator();
             const gain2 = audioCtx.createGain();
             osc2.connect(gain2); gain2.connect(audioCtx.destination);
             osc2.type = 'sine';
             
-            osc.frequency.setValueAtTime(659.25, now + 0.16); // Ми (E5)
-            osc2.frequency.setValueAtTime(783.99, now + 0.16); // Соль (G5) — вместе они дают мажорный аккорд
+            osc.frequency.setValueAtTime(659.25, now + 0.16);
+            osc2.frequency.setValueAtTime(783.99, now + 0.16);
             
             gain.gain.setValueAtTime(0.15, now + 0.16);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-            
             gain2.gain.setValueAtTime(0.1, now + 0.16);
             gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
             
             osc.start(now); osc.stop(now + 0.8);
             osc2.start(now + 0.16); osc2.stop(now + 0.8);
-            return; // Прерываем функцию, так как osc2 управляется отдельно
+            return;
         }
     } catch(e) {}
 }
 
-// ... остальной код (spawnConfetti, updateScore, buildAlbum, loadLevel, winRound и т.д.) остается прежним ...
+function spawnConfetti() {
+    const layer = document.getElementById('confetti-layer');
+    const emojis = ['🎉', '✨', '🌟', '🍭', '🔥', '⚡'];
+    for (let i = 0; i < 12; i++) {
+        const el = document.createElement('div');
+        el.className = 'pop-emoji'; el.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+        el.style.left = '50%'; el.style.top = '50%';
+        const angle = Math.random() * Math.PI * 2; const dist = 60 + Math.random() * 80;
+        el.style.setProperty('--x', `${Math.cos(angle) * dist}px`); el.style.setProperty('--y', `${Math.sin(angle) * dist}px`);
+        layer.appendChild(el); setTimeout(() => el.remove(), 600);
+    }
+}
+
+function updateScoreDisplay() {
+    document.getElementById('score').innerHTML = `${score} <span style="color:#7f8c8d; font-weight:normal; margin-left:5px;">⚡ Best: ${highScore}</span>`;
+    let rank = "Noob 🍼";
+    if (score >= 200) rank = "Mega Boss 👑";
+    else if (score >= 100) rank = "Cyber Hero ⚡";
+    else if (score >= 50) rank = "Pro Gamer 🎮";
+    else if (score >= 15) rank = "Cool Kid 😎";
+    document.getElementById('rank').innerText = rank;
+}
+
+function updateScore(pts) {
+    score = Math.max(0, score + pts);
+    if (pts > 0) {
+        streak++;
+        if(streak >= 3) {
+            document.getElementById('streak-badge').style.display = 'inline-block';
+            document.getElementById('streak').innerText = streak;
+            if (streak >= 5) document.getElementById('card').className = "game-card super-streak";
+        }
+    } else if (pts < 0) {
+        streak = 0; document.getElementById('streak-badge').style.display = 'none';
+        document.getElementById('card').className = "game-card";
+    }
+    updateScoreDisplay();
+}
+
+function buildAlbum() {
+    const grid = document.getElementById('album-grid');
+    grid.innerHTML = "";
+    data.forEach((item) => {
+        const el = document.createElement('div');
+        if (unlockedStickers.includes(item.a)) {
+            el.className = "sticker"; el.innerText = item.icon; el.title = item.h;
+        } else {
+            el.className = "sticker locked"; el.innerText = "?";
+        }
+        grid.appendChild(el);
+    });
+    document.getElementById('collected-count').innerText = unlockedStickers.length;
+}
+
+function loadLevel() {
+    if (gameMode === 'ended' || gameMode === 'time-waiting') return;
+    document.getElementById('next').style.display = 'none';
+    document.getElementById('skip-btn').style.display = 'inline-block';
+    document.getElementById('word-input').value = "";
+    const container = document.getElementById('image-container');
+    container.className = "silhouette"; container.style.transform = "scale(1)";
+    container.innerText = data[cur].icon;
+    const hintBtn = document.getElementById('hint-btn');
+    if (isTextMode) {
+        document.getElementById('mic-btn').style.display = 'none';
+        document.getElementById('text-input-container').style.display = 'flex';
+        document.getElementById('feedback').innerText = "Type the word!";
+        hintBtn.innerText = "✏️ Show Letters";
+    } else {
+        document.getElementById('mic-btn').style.display = 'inline-block';
+        document.getElementById('text-input-container').style.display = 'none';
+        document.getElementById('feedback').innerText = "Tap mic to speak";
+        hintBtn.innerText = "🔊 Hear Hint";
+    }
+}
+
+function winRound() {
+    if (gameMode === 'ended' || gameMode === 'time-waiting') return;
+    spawnConfetti();
+    const currentWord = data[cur].a;
+    
+    if (!unlockedStickers.includes(currentWord)) {
+        unlockedStickers.push(currentWord);
+        localStorage.setItem('emoji_stickers', JSON.stringify(unlockedStickers));
+        playTone('new_sticker');
+        buildAlbum();
+        document.getElementById('feedback').innerText = "NEW STICKER UNLOCKED! 🎉 It's " + data[cur].h;
+    } else {
+        playTone('win');
+        document.getElementById('feedback').innerText = "Correct! It's " + data[cur].h;
+    }
+
+    const img = document.getElementById('image-container');
+    img.className = ""; img.style.transform = "scale(1.2)";
+    
+    if (gameMode === 'time') {
+        timeLeft += 3;
+        document.getElementById('timer-val').innerText = timeLeft;
+        setTimeout(() => { nextLevel(); }, 800);
+    } else {
+        document.getElementById('next').style.display = 'inline-block';
+        document.getElementById('skip-btn').style.display = 'none';
+    }
+    updateScore(10);
+}
+
+function nextLevel() {
+    if (gameMode === 'ended' || gameMode === 'time-waiting') return;
+    cur = Math.floor(Math.random() * data.length);
+    loadLevel();
+}
+
+function checkTextWord() {
+    if (document.getElementById('word-input').value.trim().toLowerCase() === data[cur].a) winRound();
+    else { 
+        playTone('fail'); 
+        if(gameMode === 'time') timeLeft = Math.max(0, timeLeft - 5);
+        document.getElementById('feedback').innerText = "Wrong spelling. Try again!"; 
+    }
+}
+
+function startRecognition() {
+    const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    rec.lang = 'en-US';
+    rec.interimResults = false; 
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => { 
+        document.getElementById('feedback').innerText = "Listening... Speak clearly! 🎙️"; 
+    };
+    
+    rec.onresult = (e) => {
+        let resultText = e.results[0][0].transcript.toLowerCase().trim();
+        const targetWord = data[cur].a; 
+        
+        const soundAlikes = {
+            'pig': ['big', 'peg', 'pick', 'pigg', 'pige', 'pink', 'peek', 'peeg', 'fig', 'pagan'],
+            'dog': ['dok', 'tog', 'dug', 'doh', 'duck', 'done', 'door', 'log', 'gog'],
+            'cat': ['ket', 'cut', 'cap', 'gat', 'get', 'hat', 'cater', 'can', 'chat'],
+            'fox': ['box', 'vaux', 'foks', 'focus', 'folks', 'bucks'],
+            'frog': ['frok', 'freg', 'vrog', 'from', 'front', 'fog'],
+            'bus': ['bas', 'pass', 'but', 'bath', 'buzz', 'bars'],
+            'car': ['ca', 'core', 'call', 'can', 'card', 'far'],
+            'cup': ['cap', 'cop', 'cub', 'cat', 'keep'],
+            'bed': ['bad', 'bat', 'bet', 'pet', 'red', 'head'],
+            'hat': ['het', 'hot', 'had', 'cat', 'heart', 'head'],
+            'sun': ['san', 'sam', 'song', 'son', 'soon', 'fun'],
+            'key': ['ki', 'ke', 'chi', 'tea', 'see'],
+            'milk': ['melk', 'milc', 'silk', 'mill']
+        };
+
+        let isCorrect = resultText.includes(targetWord);
+        
+        if (!isCorrect && soundAlikes[targetWord]) {
+            isCorrect = soundAlikes[targetWord].some(alias => {
+                const regex = new RegExp(`\\b${alias}\\b`, 'g');
+                return regex.test(resultText) || resultText.includes(alias);
+            });
+        }
+        
+        if (!isCorrect && targetWord.length <= 4) {
+            const words = resultText.split(' ');
+            isCorrect = words.some(w => {
+                if (Math.abs(w.length - targetWord.length) <= 1) {
+                    let matches = 0;
+                    for (let i = 0; i < targetWord.length; i++) {
+                        if (w.includes(targetWord[i])) matches++;
+                    }
+                    return matches >= targetWord.length - 1;
+                }
+                return false;
+            });
+        }
+
+        if (isCorrect) {
+            winRound();
+        } else { 
+            playTone('fail'); 
+            if(gameMode === 'time') timeLeft = Math.max(0, timeLeft - 5);
+            document.getElementById('feedback').innerText = `Heard: "${resultText}". Try again!`; 
+        }
+    };
+    
+    rec.onerror = (err) => {
+        document.getElementById('feedback').innerText = "Mic error. Try speaking closer!";
+    };
+
+    rec.start();
+}
+
+function setGameMode(mode) {
+    clearInterval(timerInterval);
+    
+    if (mode === 'time') {
+        gameMode = 'time-waiting';
+        score = 0;
+        updateScoreDisplay();
+        
+        document.getElementById('mode-classic').className = "btn-mode";
+        document.getElementById('mode-time').className = "btn-mode active";
+        document.getElementById('timer-display').style.display = 'block';
+        document.getElementById('timer-val').innerText = "60";
+        
+        document.getElementById('input-toggle-container').style.display = 'none';
+        document.getElementById('mic-btn').style.display = 'none';
+        document.getElementById('text-input-container').style.display = 'none';
+        document.getElementById('action-buttons-container').style.display = 'none';
+        
+        document.getElementById('game-heading').innerText = "Ready?";
+        document.getElementById('image-container').innerText = "⏱️";
+        document.getElementById('image-container').className = "";
+        document.getElementById('feedback').innerText = "Click NEXT to start the 60s challenge!";
+        
+        document.getElementById('next').innerText = "START SPEED RUN ⚡";
+        document.getElementById('next').style.display = 'inline-block';
+        document.getElementById('next').onclick = startTimeAttackCountdown;
+    } else {
+        gameMode = 'classic';
+        document.getElementById('mode-classic').className = "btn-mode active";
+        document.getElementById('mode-time').className = "btn-mode";
+        document.getElementById('timer-display').style.display = 'none';
+        document.getElementById('input-toggle-container').style.display = 'flex';
+        document.getElementById('action-buttons-container').style.display = 'flex';
+        document.getElementById('game-heading').innerText = "What is this?";
+        document.getElementById('next').innerText = "Next ➔";
+        document.getElementById('next').onclick = nextLevel;
+        nextLevel();
+    }
+}
+
+function startTimeAttackCountdown() {
+    gameMode = 'time';
+    document.getElementById('next').innerText = "Next ➔";
+    document.getElementById('next').onclick = nextLevel;
+    document.getElementById('input-toggle-container').style.display = 'flex';
+    document.getElementById('action-buttons-container').style.display = 'flex';
+    document.getElementById('game-heading').innerText = "What is this?";
+    
+    timeLeft = 60;
+    document.getElementById('timer-val').innerText = timeLeft;
+    
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer-val').innerText = timeLeft;
+        if(timeLeft <= 0) {
+            clearInterval(timerInterval);
+            endTimeAttack();
+        }
+    }, 1000);
+    nextLevel();
+}
 
 function endTimeAttack() {
     gameMode = 'ended';
@@ -168,7 +413,6 @@ function endTimeAttack() {
         isNewRecord = true;
     }
     
-    // Включаем звук в зависимости от результата
     if (isNewRecord && score > 0) {
         playTone('highscore');
     } else {
@@ -196,5 +440,40 @@ function endTimeAttack() {
     };
     updateScoreDisplay();
 }
+
+function setInputMode(type) {
+    if (gameMode === 'ended' || gameMode === 'time-waiting') return;
+    isTextMode = (type === 'text');
+    document.getElementById('input-voice').className = "btn-mode" + (type === 'voice' ? ' active' : '');
+    document.getElementById('input-text').className = "btn-mode" + (type === 'text' ? ' active' : '');
+    loadLevel();
+}
+
+document.getElementById('mic-btn').onclick = startRecognition;
+document.getElementById('check-btn').onclick = checkTextWord;
+document.getElementById('word-input').onkeypress = (e) => { if(e.key === 'Enter') checkTextWord(); };
+document.getElementById('next').onclick = nextLevel;
+document.getElementById('skip-btn').onclick = () => { 
+    playTone('fail'); 
+    updateScore(-5); 
+    if(gameMode === 'time') timeLeft = Math.max(0, timeLeft - 5);
+    nextLevel(); 
+};
+
+document.getElementById('hint-btn').onclick = () => {
+    if (gameMode === 'ended' || gameMode === 'time-waiting') return;
+    if (isTextMode) {
+        let w = data[cur].a;
+        document.getElementById('feedback').innerText = `Hint: ${w[0]} ${"_ ".repeat(w.length - 2)} ${w[w.length - 1]}`;
+    } else {
+        const u = new SpeechSynthesisUtterance("It is " + data[cur].h);
+        u.voice = speechSynthesis.getVoices().find(v => v.lang.startsWith('en')) || null;
+        speechSynthesis.speak(u);
+    }
+};
+
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+buildAlbum();
+updateScoreDisplay();
 loadLevel();
 </script>
